@@ -35,19 +35,33 @@ filter_list = [
 ]
 
 #curl requests to the wiki title and returns a set of all inter wiki links from that title
-def wiki_curl(title):
+def wiki_curl(title, get_title=False):
     formatted_title = title.replace(" ","_")
 
     curl_url = wiki_url.format(formatted_title)
 
     req = requests.get(url=curl_url)
-    req_result = bs4.BeautifulSoup(req.text,'html.parser').find_all(id="mw-content-text")[0]
+
+    req_result = bs4.BeautifulSoup(req.text,'html.parser')
+
+    if "Wikipedia does not have an article with this exact name" in req_result.get_text():
+        print("\"{}\" does not exist on Wikipedia. Please try fixing the capitalization or any other typo.".format(formatted_title))
+        sys.exit()
+
+    return req_result
+
+def get_wiki_links(title):
+
+    wiki_request = wiki_curl(title)
+
+    req_result = wiki_request.find_all(id="mw-content-text")[0]
 
     links = []
 
     for val in req_result.find_all('a', href=True):
 
         href_str = val.get('href')
+
         #remove url encoding from string
         href_str = unquote(href_str)
 
@@ -59,13 +73,28 @@ def wiki_curl(title):
 
     return links
 
+def get_title(title):
+
+    wiki_request = wiki_curl(title)
+
+    found_title = wiki_request.find(id="firstHeading")
+
+    #title is stored like this in html page: "<h1 class="firstHeading" id="firstHeading" lang="en">Potato</h1>" 
+    #grabs everything after ">" and before "</h1>"
+    found_title = re.search('">(.+)(?=<\/h1>)', str(found_title))
+
+    #wiki pages are underscore sperated for titles
+    found_title = ("_").join(found_title.group(1).split(" "))
+
+    return found_title
+
 def get_links(title):
 
     query = check_db(title)
 
     if query == []:
         # print("{} not in db, doing wiki request".format(title))
-        query = wiki_curl(title)
+        query = get_wiki_links(title)
         insert_db(title, query)
         return query
     else:
