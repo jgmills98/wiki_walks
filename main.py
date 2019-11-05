@@ -77,103 +77,142 @@ def get_title(title):
 
     wiki_request = wiki_curl(title)
 
-    found_title = wiki_request.find(id="firstHeading")
-
-    #title is stored like this in html page: "<h1 class="firstHeading" id="firstHeading" lang="en">Potato</h1>" 
-    #grabs everything after ">" and before "</h1>"
-    found_title = re.search('">(.+)(?=<\/h1>)', str(found_title))
+    found_title = wiki_request.find(id="firstHeading").text
 
     #wiki pages are underscore sperated for titles
-    found_title = ("_").join(found_title.group(1).split(" "))
+    found_title = ("_").join(found_title.split(" "))
 
     return found_title
 
 def get_links(title):
 
-    query = check_db(title)
+    query = check_db(title, "items")
 
     if query == []:
         # print("{} not in db, doing wiki request".format(title))
         query = get_wiki_links(title)
-        insert_db(title, query)
+        insert_db(title, query, "items")
         return query
     else:
         # print("{} in db".format(title))
         return query["links"]
+
+#checks if the query has been ran before
+def check_search(start, end):
+    name_str = start + " " + end
+    check = check_db(name_str, "results")
+    return check
     
 def run_search(start, end):
-    print(start,end)
+    
+    print("Finding \"{}\" from \"{}\"".format(end, start))
+
+    sentinal_node = None
     
     traveled = {}
 
+    parent_dict = {}
+
     qu = queue.Queue()
     qu.put(start)
+    qu.put(sentinal_node)
 
-    connected_title = start
-
-    depth_array = []
-
-    n = 0
-    depth_index = 0
     depth = 0
+    n = 0
 
     while(not qu.empty()):
-        print(qu.qsize())
-
+        # print(qu.qsize())
+        
         query_title = qu.get()
 
-        if query_title in traveled:
-            n += 1
+        if query_title == sentinal_node:
+            depth += 1
+            #dont add another sentinal if the queue is already empty
+            if qu.qsize() != 0:
+                qu.put(sentinal_node, sentinal_node)
             continue
 
-        print("Currently in {} connected by {}".format(query_title, connected_title))
+        if query_title == end:
+            print("Found {} in {} clicks".format(end, depth))
+            break
 
+        #check if we have seen this title before
+        if query_title in traveled:
+            continue
+        
+        #add title to traveled dict
         traveled[query_title] = 1
 
         results = get_links(query_title)
 
-        if n == 0:
-            last_title = results[-1]
-            connected_title = query_title
-            next_title = results[0]
-
         if end in results:
-            print("Connected {} to {} in {} clicks".format(start, end, depth))
-            break
+            parent_dict[end] = query_title
+            print("Found \"{}\" in {} clicks".format(end, depth))
+            break  
 
-        if last_title == query_title:
-            depth += 1
-            last_title = results[-1]
-            connected_title = next_title
-            next_title = results[0]
+        for res in results:
+            if res not in parent_dict:
+                parent_dict[res] = query_title
+            qu.put(res)
 
-        for item in results:
-            qu.put(item)
-        
-        if n == 3000:
-            print(qu.qsize())
-            break
-        
-        n += 1
+    route = find_route(parent_dict, start, end)
+
+    store_result(start, end, depth, route)
+
+    return route, depth
+
+def store_result(start, end, depth, route):
+    data = {}
+    name = "{} {}".format(start, end)
+    data["depth"] = depth
+    data["route"] = route
+    insert_db(name, data, "results")
+    return
+
+def find_route(parent_dict, start, end):
+    route_list = []
+    curr = end
+    route_list.append(end)
+
+    while curr != start:
+        parent = parent_dict[curr]
+        route_list.append(parent)
+        curr = parent
+
+    return route_list[::-1]
+
+def print_info(start, end, depth, route):
+    print("It took {} clicks to go from {} -> {}".format(depth, start, end))
+    print("The route taken was:")
+    print(" -> ".join(route))
+
+def print_q(que):
+    while not que.empty():
+        print(que.get())
+
+def get_result_data(data):
+    depth = data["data"]["depth"]
+    route = data["data"]["route"]
+    return route, depth
 
 def main():
     start = sys.argv[1]
     end = sys.argv[2]
 
-    # db.drop()
-
     #check wiki to make get the real title (e.g. if ww2 is typed in, the actual title is World_War_II)
     actual_start = get_title(start)
     actual_end = get_title(end)
 
-    run_search(actual_start, actual_end)
+    check = check_search(actual_start, actual_end)
 
-    data = get_wiki_links("Hello_Neighbor")
-    print(data)
+    if check == []:
+        route, depth = run_search(actual_start, actual_end)
+    else:
+        print("Route already done, displaying previous results")
+        route, depth = get_result_data(check)
 
-    # print(db.find_one({"name":"World_War_II"}))
-    # check = check_db(db, "World_War_III")
-    # print(check)
+    print_info(actual_start, actual_end, depth, route)
+
 
 if __name__ == '__main__':
     main()
