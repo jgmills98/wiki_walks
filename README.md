@@ -12,3 +12,6 @@ start: Dog
 end: Charles Darwin
 
 Dog -> Divergent Evolution -> Darwin's Finches -> Charles Darwin
+
+**found out after finishing the algorithm. The above route is technically:
+Dog -> Taxonomy_(biology) -> Charles_Darwin***
