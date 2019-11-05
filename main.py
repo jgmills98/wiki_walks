@@ -137,8 +137,6 @@ def run_search(start, end):
             connected_title = query_title
             next_title = results[0]
 
-        # print(len(results))
-
         if end in results:
             print("Connected {} to {} in {} clicks".format(start, end, depth))
             break
@@ -148,7 +146,6 @@ def run_search(start, end):
             last_title = results[-1]
             connected_title = next_title
             next_title = results[0]
-
 
         for item in results:
             qu.put(item)
@@ -163,9 +160,20 @@ def main():
     start = sys.argv[1]
     end = sys.argv[2]
 
-    run_search(start, end)
-    wiki_curl("World War II")
+    # db.drop()
+
+    #check wiki to make get the real title (e.g. if ww2 is typed in, the actual title is World_War_II)
+    actual_start = get_title(start)
+    actual_end = get_title(end)
+
+    run_search(actual_start, actual_end)
+
+    data = get_wiki_links("Hello_Neighbor")
+    print(data)
+
+    # print(db.find_one({"name":"World_War_II"}))
+    # check = check_db(db, "World_War_III")
+    # print(check)
 
 if __name__ == '__main__':
-    #TODO: crete args for point A-B search
     main()
