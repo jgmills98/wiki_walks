@@ -31,7 +31,8 @@ filter_list = [
     "Category:CS1_maint:_archived_copy_as_title",
     "Help:",
     "Wikipedia:Citation_needed",
-    "Wikipedia:"
+    "Wikipedia:",
+    "Several"
 ]
 
 #curl requests to the wiki title and returns a set of all inter wiki links from that title
@@ -119,9 +120,9 @@ def run_search(start, end):
 
     depth = 0
     n = 0
+    exit_loop = False
 
     while(not qu.empty()):
-        # print(qu.qsize())
         
         query_title = qu.get()
 
@@ -140,23 +141,30 @@ def run_search(start, end):
         if query_title in traveled:
             continue
         
+        print("{} {}".format(query_title, qu.qsize()))
+        n += 1
+        
         #add title to traveled dict
         traveled[query_title] = 1
 
         results = get_links(query_title)
 
-        if end in results:
-            parent_dict[end] = query_title
-            print("Found \"{}\" in {} clicks".format(end, depth))
-            break  
-
         for res in results:
+            if res == end:
+                parent_dict[end] = query_title
+                print("Found \"{}\" in {} clicks".format(end, depth))
+                exit_loop = True
+                break   
+
             if res not in parent_dict:
                 parent_dict[res] = query_title
             qu.put(res)
+        
+        if exit_loop:
+            break
 
     route = find_route(parent_dict, start, end)
-
+    print("n: {}".format(n))
     store_result(start, end, depth, route)
 
     return route, depth
