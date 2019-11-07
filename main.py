@@ -4,6 +4,7 @@ import re
 import json
 import sys
 import queue
+import argparse
 
 from urllib.parse import unquote
 from pymongo import MongoClient
@@ -32,7 +33,9 @@ filter_list = [
     "Help:",
     "Wikipedia:Citation_needed",
     "Wikipedia:",
-    "Several"
+    "Several",
+    "Alt=icon",
+    "User:"
 ]
 
 #curl requests to the wiki title and returns a set of all inter wiki links from that title
@@ -45,9 +48,9 @@ def wiki_curl(title, get_title=False):
 
     req_result = bs4.BeautifulSoup(req.text,'html.parser')
 
-    if "Wikipedia does not have an article with this exact name" in req_result.get_text():
-        print("\"{}\" does not exist on Wikipedia. Please try fixing the capitalization or any other typo.".format(formatted_title))
-        sys.exit()
+    # if "Wikipedia does not have an article with this exact name" in req_result.get_text():
+    #     print("\"{}\" does not exist on Wikipedia. Please try fixing the capitalization or any other typo.".format(formatted_title))
+    #     sys.exit()
 
     return req_result
 
@@ -87,15 +90,14 @@ def get_title(title):
 
 def get_links(title):
 
+    #check if query already has been done, if not get result from wiki and cache it in the db
     query = check_db(title, "items")
 
     if query == []:
-        # print("{} not in db, doing wiki request".format(title))
         query = get_wiki_links(title)
         insert_db(title, query, "items")
         return query
     else:
-        # print("{} in db".format(title))
         return query["links"]
 
 #checks if the query has been ran before
@@ -141,7 +143,7 @@ def run_search(start, end):
         if query_title in traveled:
             continue
         
-        print("{} {}".format(query_title, qu.qsize()))
+        print("{} {} {}".format(query_title, qu.qsize(), depth))
         n += 1
         
         #add title to traveled dict
@@ -203,17 +205,26 @@ def get_result_data(data):
     route = data["data"]["route"]
     return route, depth
 
+def get_args():
+    arg = argparse.ArgumentParser()
+    arg.add_argument("--start", required=True)
+    arg.add_argument("--end", required=True)
+    arg.add_argument("-r", "--requery", action="store_true", default=False)
+    return arg.parse_args()
+
 def main():
-    start = sys.argv[1]
-    end = sys.argv[2]
+    args = get_args()
+    print(args)
+    # start = sys.argv[1]
+    # end = sys.argv[2]
 
     #check wiki to make get the real title (e.g. if ww2 is typed in, the actual title is World_War_II)
-    actual_start = get_title(start)
-    actual_end = get_title(end)
+    actual_start = get_title(args.start)
+    actual_end = get_title(args.end)
 
     check = check_search(actual_start, actual_end)
 
-    if check == []:
+    if check == [] or args.requery == True:
         route, depth = run_search(actual_start, actual_end)
     else:
         print("Route already done, displaying previous results")
