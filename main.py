@@ -140,10 +140,42 @@ def check_search(start, end):
     return check
 
 def get_n_random(n):
+    print("Getting {} random pages".format(n))
+    low = 100
+    med = 300
+    high = 500
+
+    lowc = 0
+    medc = 0
+    highc = 0
+
+
     rand_list = []
-    for i in range(0,n):
-        rand_list.append(wiki_curl("",True,True))
-    # print(wiki_curl("",True,True))
+    done = False
+    while done == False:
+        rand_title = wiki_curl("",True,True)
+        title_links_size = len(get_wiki_links(rand_title))
+        
+        if title_links_size <= low:
+            if lowc <= (n/3)-1:
+                lowc += 1
+                print(lowc,medc,highc)
+
+        elif title_links_size > low and title_links_size <= med:
+            if medc <= (n/3)-1:
+                medc += 1
+                print(lowc,medc,highc)
+
+        elif title_links_size > med:
+            if highc <= (n/3)-1:
+                highc += 1
+                print(lowc,medc,highc)
+
+        rand_list.append(rand_title)
+
+        if lowc == n/3 and medc == n/3 and highc == n/3:
+            done = True
+            
     return rand_list
 
 def run_search(start, end, max_depth):
@@ -335,7 +367,7 @@ def main():
 
     # iterative_deep(actual_start, actual_end, 1)
 
-    matrix_calc(10,2)
+    matrix_calc(45,2)
     # print(get_n_random(10))
 
 if __name__ == '__main__':
