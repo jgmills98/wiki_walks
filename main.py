@@ -142,8 +142,7 @@ def check_search(start, end):
 def get_n_random(n):
     print("Getting {} random pages".format(n))
     low = 100
-    med = 300
-    high = 500
+    med = 400
 
     lowc = 0
     medc = 0
@@ -152,37 +151,44 @@ def get_n_random(n):
 
     rand_list = []
     done = False
-    while done == False:
+
+    while lowc + medc + highc < n:
         rand_title = wiki_curl("",True,True)
         title_links_size = len(get_wiki_links(rand_title))
         
         if title_links_size <= low:
             if lowc <= (n/3)-1:
                 lowc += 1
+                rand_list.append(rand_title)
                 print(lowc,medc,highc)
 
         elif title_links_size > low and title_links_size <= med:
             if medc <= (n/3)-1:
                 medc += 1
+                rand_list.append(rand_title)
                 print(lowc,medc,highc)
 
         elif title_links_size > med:
             if highc <= (n/3)-1:
                 highc += 1
+                rand_list.append(rand_title)
                 print(lowc,medc,highc)
-
-        rand_list.append(rand_title)
-
-        if lowc == n/3 and medc == n/3 and highc == n/3:
-            done = True
             
     return rand_list
 
 def run_search(start, end, max_depth):
-    if start == end:
-        return [],0
 
-    print("Finding \"{}\" from \"{}\"".format(end, start))
+    dict_passed = False
+    if type(end) == dict:
+        dict_passed = True
+        end[start] = 1
+
+    exit_loop = False
+
+    if not dict_passed:
+        print("Finding \"{}\" from \"{}\"".format(end, start))
+        if start == end:
+            exit_loop = True
 
     sentinal_node = None
 
@@ -196,9 +202,8 @@ def run_search(start, end, max_depth):
 
     depth = 0
     n = 0
-    exit_loop = False
 
-    while(not qu.empty()):
+    while(not qu.empty() and exit_loop == False):
         if depth == max_depth+1:
             return [], -1
 
@@ -210,8 +215,8 @@ def run_search(start, end, max_depth):
             if qu.qsize() != 0:
                 qu.put(sentinal_node, sentinal_node)
             continue
-
-        if query_title == end:
+        
+        if not dict_passed and query_title == end:
             print("Found {} in {} clicks".format(end, depth))
             break
 
@@ -219,7 +224,7 @@ def run_search(start, end, max_depth):
         if query_title in traveled:
             continue
 
-        print("{} {} {} {}".format(n, query_title, qu.qsize(), depth))
+        # print("{} {} {} {}".format(n, query_title, qu.qsize(), depth))
         n += 1
 
         #add title to traveled dict
@@ -251,22 +256,31 @@ def run_search(start, end, max_depth):
                     print("deleting {} from db because of {}".format(query_title, res))
                 # sys.exit()
 
+            if not dict_passed:
+                if res == end:
+                    parent_dict[end] = query_title
+                    print("Found \"{}\" in {} clicks".format(end, depth))
+                    exit_loop = True
+                    break
+            else:
+                if res in end:
+                    print("Found {} in {}".format(res, query_title))
+                    end[res] = 1
+                    # print(end)
 
-            if res == end:
-                parent_dict[end] = query_title
-                print("Found \"{}\" in {} clicks".format(end, depth))
-                exit_loop = True
-                break
 
             if res not in parent_dict:
                 parent_dict[res] = query_title
                 qu.put(res)
 
+        if all(title == 1 for title in end):
+            exit_loop = True
+
         if exit_loop:
             break
 
     route = find_route(parent_dict, start, end)
-    print("n: {}".format(n))
+    # print("n: {}".format(n))
     store_result(start, end, depth, route)
 
     return route, depth
@@ -276,22 +290,23 @@ def iterative_deep(start, end, depth):
 
 def matrix_calc(n, max_depth):
     titles = get_n_random(n)
+
+    title_dict = {}
+    for title in titles:
+        title_dict[title] = 0
+
     # print(titles)
-    matrix = np.zeros((n,n))
+    matrix = np.zeros((n,n), dtype=int)
     for i in range(0,n):
+        print("Running search from {}".format(titles[i]))
+        run_search(titles[i], title_dict, max_depth)
         for j in range(0,n):
-            check = check_search(titles[i], titles[j])
+            matrix[i][j] = title_dict[titles[j]]
 
-            if check == []:
-                route, depth = run_search(titles[i], titles[j], max_depth)
-            else:
-                route, depth = get_result_data(check)
+        for title in titles:
+            title_dict[title] = 0
+    
 
-            # route,depth = run_search(titles[i],titles[j], max_depth)
-            if depth == -1:
-                matrix[i][j] = 0
-            else:
-                matrix[i][j] = 1
     print(titles)
     for row in matrix:
         print(row)
@@ -303,6 +318,7 @@ def matrix_calc(n, max_depth):
             count += item
         results.append(count/n)
     print(results)
+    print(sum(results) / (n*n))
 
     return
 
